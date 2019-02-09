@@ -11,6 +11,7 @@ class Toc
       withLinks: 1  # withLinks
       updateOnSave: 1 # updateOnSave
       orderedList: 0 # orderedList
+      indent: Buffer.from('    ').toString('base64') # custom indentation characters
 
     at = @
     @editor.getBuffer().onWillSave () ->
@@ -92,7 +93,7 @@ class Toc
     @__updateList()
     if Object.keys(@list).length > 0
       text = []
-      text.push "<!-- TOC depthFrom:"+@options.depthFrom+" depthTo:"+@options.depthTo+" withLinks:"+@options.withLinks+" updateOnSave:"+@options.updateOnSave+" orderedList:"+@options.orderedList+" -->\n"
+      text.push "<!-- TOC depthFrom:"+@options.depthFrom+" depthTo:"+@options.depthTo+" withLinks:"+@options.withLinks+" updateOnSave:"+@options.updateOnSave+" orderedList:"+@options.orderedList+" indent:"+@options.indent+" -->\n"
       list = @__createList()
       if list isnt false
         Array.prototype.push.apply text, list
@@ -133,10 +134,11 @@ class Toc
     depthFrom = if @options.depthFrom isnt undefined then @options.depthFrom else 1
     depthTo = if @options.depthTo isnt undefined then @options.depthTo else 6
     indicesOfDepth = Array.apply(null, new Array(depthTo - depthFrom + 1)).map(Number.prototype.valueOf, 0);
+    indent = Buffer.from(@options.indent, 'base64').toString('utf-8')
     for own i, item of @list
       row = []
       for tab in [depthFrom..item.depth] when tab > depthFrom
-        row.push "\t"
+        row.push indent
       if @options.orderedList is 1
         row.push ++indicesOfDepth[item.depth-1] + ". "
         indicesOfDepth = indicesOfDepth.map((value, index) -> if index < item.depth then value else 0)
@@ -157,7 +159,7 @@ class Toc
 
 
   __updateOptions: (line) ->
-    options = line.match /(\w+(=|:)(\d|yes|no))+/g
+    options = line.match /(\w+(=|:)(\d|yes|no|[a-zA-Z0-9+/]+={0,2}))+/g
     if options
       @options = {}
       for i of options
@@ -166,13 +168,16 @@ class Toc
         key = option.match /^(\w+)/g
         key = new String key[0]
 
-        value = option.match /(\d|yes|no)$/g
+        value = option.match /(\d|yes|no|[a-zA-Z0-9+/]+={0,2})$/g
         value = new String value[0]
-        if value.length > 1
-          if value.toLowerCase().valueOf() is new String("yes").valueOf()
-            value = 1
-          else
-            value = 0
+        if key.toLowerCase().valueOf() isnt new String("indent").valueOf()
+          if value.length > 1
+            if value.toLowerCase().valueOf() is new String("yes").valueOf()
+              value = 1
+            else
+              value = 0
+        else
+          @options.indent = value
 
         if key.toLowerCase().valueOf() is new String("depthfrom").valueOf()
           @options.depthFrom = parseInt value
